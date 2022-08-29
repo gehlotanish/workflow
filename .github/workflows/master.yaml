@@ -54,7 +54,7 @@ jobs:
               \"prerelease\": false
           }"`
           rel_id=`jq -r '.id ' <<< $release`
-          zip -r demo.zip .
+          zip -r demo.zip Deployment.yml
           curl --silent --output /dev/null -H 'Authorization: token ${{ secrets.PAT }}'  -H 'Accept: application/vnd.github+json' -X POST https://uploads.github.com/repos/gehlotanish/workflow/releases/$rel_id/assets?name=demo.zip\
           --header 'Content-Type: text/javascript ' --upload-file ./demo.zip
 
