@@ -1,0 +1,65 @@
+name: Deploy Node.js project 
+
+on:
+  push:
+    branches:
+      - master
+
+env: 
+  NODE_VERSION: '14.x' 
+  RUNNER: ${{ github.run_number }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: 'Checkout GitHub Action'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Add SHORT_SHA env property with commit short sha
+        run: |
+          echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-8`" >> $GITHUB_ENV
+          echo "ACID=`echo https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}`" >> $GITHUB_ENV
+          echo "commit_url=`echo https://github.com/${{github.repository}}/commit/${GITHUB_SHA}`" >> $GITHUB_ENV
+          echo "commit_msg=`echo ${{github.event.head_commit.message}}`" >> $GITHUB_ENV
+      - name: 'Validate code'
+        run: |
+            echo $SHORT_SHA
+            echo $ACID
+            echo $commit_url
+            echo $commit_msg
+
+      - uses: ncipollo/release-action@v1
+        with:
+          name: V1.${{ github.run_number }}
+          tag: ${{ github.run_number }}
+          artifacts: "demo.zip"
+          bodyFile: "CHANGELOG.md"
+          commit: master
+          draft: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 'Create Release'
+        run: |
+          release=`curl --silent -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' -H 'Accept: application/vnd.github+json' -X POST https://api.github.com/repos/gehlotanish/ohs/releases \
+          -d "
+          {   \"tag_name\": \"v1.1.${{ env.RUNNER }}\",
+              \"target_commitish\": \"master\",
+              \"name\": \"${{ github.run_number }}\",
+              \"body\": \"new version\n demo \n hi\",
+            \"draft\": false,
+              \"prerelease\": false
+          }"`
+          rel_id=`jq -r '.id ' <<< $release`
+          zip -r demo.zip gulp-temps
+          curl --silent --output /dev/null -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}'  -H 'Accept: application/vnd.github+json' -X POST https://uploads.github.com/repos/gehlotanish/ohs/releases/$rel_id/assets?name=demo.zip\
+          --header 'Content-Type: text/javascript ' --upload-file ./demo.zip
+
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v2
+        with:
+          name: artificat
+          path: demo.zip
